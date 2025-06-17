@@ -2,7 +2,7 @@ import os
 import sqlite3
 import requests
 from bs4 import BeautifulSoup
-from telegram import Bot, Update, InputMediaPhoto
+from telegram import Bot, Update, InputMediaPhoto, BotCommand
 from telegram.ext import Updater, CommandHandler, CallbackContext
 from datetime import datetime
 import threading
