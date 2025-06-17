@@ -82,15 +82,17 @@ def build_search_url(city, price_min, price_max, sqm_min):
 
 def scrape_listings(city, price_min, price_max, sqm_min):
     url = build_search_url(city, price_min, price_max, sqm_min)
+    print(f"Scraping URL: {url}")
     response = requests.get(url)
     if response.status_code != 200:
-        print(f"Failed to fetch listings for {city}")
+        print(f"Failed to fetch listings for {city} with status {response.status_code}")
         return []
 
     soup = BeautifulSoup(response.text, 'html.parser')
     listings = []
 
-    cards = soup.find_all("article", class_="items__item")  # Update selector if needed
+    cards = soup.find_all("article", class_="items__item")
+    print(f"Found {len(cards)} listings in {city}")
 
     for card in cards:
         a_tag = card.find("a", href=True)
@@ -107,8 +109,8 @@ def scrape_listings(city, price_min, price_max, sqm_min):
             price_str = price_tag.get_text(strip=True).replace('.', '').replace('€', '').strip()
             try:
                 price = int(price_str)
-            except:
-                price = None
+            except Exception as e:
+                print(f"Price parse error: {e}")
 
         sqm = None
         params_div = card.find("ul", class_="items__params")
@@ -118,11 +120,13 @@ def scrape_listings(city, price_min, price_max, sqm_min):
                 if 'm²' in text:
                     try:
                         sqm = int(''.join(filter(str.isdigit, text)))
-                    except:
-                        sqm = None
+                    except Exception as e:
+                        print(f"SQM parse error: {e}")
 
         img_tag = card.find("img", src=True)
         image_url = img_tag['src'] if img_tag else None
+
+        print(f"Listing: {title}, Price: {price}, Sqm: {sqm}")
 
         if price and sqm and price_min <= price <= price_max and sqm >= sqm_min:
             listings.append({
@@ -135,9 +139,11 @@ def scrape_listings(city, price_min, price_max, sqm_min):
                 "city": city
             })
 
+    print(f"Filtered listings count: {len(listings)}")
     return listings
 
 def send_listing(bot, chat_id, listing):
+    print(f"Sending listing: {listing['title']} to chat {chat_id}")
     text = (f"🏠 {listing['title']}\n"
             f"📍 Città: {listing['city']}\n"
             f"💶 Prezzo: {listing['price']} €\n"
@@ -158,10 +164,15 @@ def search_and_alert(bot, chat_id, cities, price_min, price_max, sqm_min):
     cities_list = [c.strip() for c in cities.split(',')]
     for city in cities_list:
         listings = scrape_listings(city, price_min, price_max, sqm_min)
+        if not listings:
+            print(f"No listings found for {city} with filters")
         for listing in listings:
             if not listing_already_sent(chat_id, listing['id']):
+                print(f"Sending listing {listing['id']} to chat {chat_id}")
                 send_listing(bot, chat_id, listing)
                 mark_listing_sent(chat_id, listing['id'])
+            else:
+                print(f"Listing {listing['id']} already sent to chat {chat_id}")
 
 def start(update: Update, context: CallbackContext):
     chat_id = update.effective_chat.id
