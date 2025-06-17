@@ -202,11 +202,19 @@ def main():
     updater = Updater(token=TOKEN, use_context=True)
     dispatcher = updater.dispatcher
 
+     # Register commands so they appear in Telegram’s slash menu
+    commands = [
+        BotCommand("start", "Avvia il bot e imposta i filtri di default"),
+        BotCommand("cercaora", "Cerca annunci ora con i filtri attivi"),
+        BotCommand("setcity", "Imposta le città separate da virgola"),
+        BotCommand("setprice", "Imposta il range di prezzo, es. 100000-350000"),
+        BotCommand("setsqm", "Imposta il minimo metri quadri")
+    ]
+    updater.bot.set_my_commands(commands)
+
     dispatcher.add_handler(CommandHandler('start', start))
     dispatcher.add_handler(CommandHandler('cercaora', cercaora))
-
-    # Start scheduler thread for automatic checking
-    threading.Thread(target=scheduled_job, args=(bot,), daemon=True).start()
+    # Add your other handlers here
 
     updater.start_polling()
     print("Bot attivo...")
