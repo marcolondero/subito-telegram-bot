@@ -2,7 +2,7 @@ import os
 import sqlite3
 import requests
 from bs4 import BeautifulSoup
-from telegram import Bot, Update, InputMediaPhoto, BotCommand
+from telegram import Bot, Update, BotCommand
 from telegram.ext import Updater, CommandHandler, CallbackContext
 from datetime import datetime
 import threading
@@ -90,14 +90,13 @@ def scrape_listings(city, price_min, price_max, sqm_min):
     soup = BeautifulSoup(response.text, 'html.parser')
     listings = []
 
-    cards = soup.find_all("article", class_="items__item")  # Current Subito uses <article> for ads
+    cards = soup.find_all("article", class_="items__item")  # Update selector if needed
 
     for card in cards:
         a_tag = card.find("a", href=True)
         if not a_tag:
             continue
         link = BASE_URL + a_tag['href']
-        # Listing ID: usually last number in URL before .htm
         listing_id = link.rstrip('/').split('-')[-1].replace('.htm', '')
 
         title = a_tag.get_text(strip=True)
@@ -145,9 +144,14 @@ def send_listing(bot, chat_id, listing):
             f"📐 Mq: {listing['sqm']}\n"
             f"🔗 [Link all'annuncio]({listing['link']})")
 
-    if listing['image_url']:
-        bot.send_photo(chat_id=chat_id, photo=listing['image_url'], caption=text, parse_mode='Markdown')
-    else:
+    try:
+        if listing['image_url']:
+            bot.send_photo(chat_id=chat_id, photo=listing['image_url'], caption=text, parse_mode='Markdown')
+        else:
+            bot.send_message(chat_id=chat_id, text=text, parse_mode='Markdown')
+    except Exception as e:
+        print(f"Error sending listing: {e}")
+        # fallback to text only
         bot.send_message(chat_id=chat_id, text=text, parse_mode='Markdown')
 
 def search_and_alert(bot, chat_id, cities, price_min, price_max, sqm_min):
@@ -187,6 +191,7 @@ def cercaora(update: Update, context: CallbackContext):
 
     search_and_alert(bot, chat_id, cities, price_min, price_max, sqm_min)
 
+# Optional: scheduled job to run search_and_alert for all users every 3 hours
 def scheduled_job(bot):
     while True:
         print(f"Scheduled job running at {datetime.now()}...")
@@ -194,7 +199,6 @@ def scheduled_job(bot):
         for user in users:
             chat_id, cities, price_min, price_max, sqm_min = user
             search_and_alert(bot, chat_id, cities, price_min, price_max, sqm_min)
-        # Run 4 times a day between 8:00 and 20:00, every 3 hours
         time.sleep(3 * 3600)
 
 def main():
@@ -202,19 +206,19 @@ def main():
     updater = Updater(token=TOKEN, use_context=True)
     dispatcher = updater.dispatcher
 
-     # Register commands so they appear in Telegram’s slash menu
+    # Register commands so they appear in Telegram’s slash menu
     commands = [
         BotCommand("start", "Avvia il bot e imposta i filtri di default"),
         BotCommand("cercaora", "Cerca annunci ora con i filtri attivi"),
-        BotCommand("setcity", "Imposta le città separate da virgola"),
-        BotCommand("setprice", "Imposta il range di prezzo, es. 100000-350000"),
-        BotCommand("setsqm", "Imposta il minimo metri quadri")
+        # Add setcity, setprice, setsqm handlers if you want them later
     ]
     updater.bot.set_my_commands(commands)
 
     dispatcher.add_handler(CommandHandler('start', start))
     dispatcher.add_handler(CommandHandler('cercaora', cercaora))
-    # Add your other handlers here
+
+    # Uncomment if you want to run the scheduled job in a thread (not recommended on Render)
+    # threading.Thread(target=scheduled_job, args=(bot,), daemon=True).start()
 
     updater.start_polling()
     print("Bot attivo...")
@@ -222,4 +226,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
