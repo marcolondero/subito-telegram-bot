@@ -214,6 +214,11 @@ def scheduled_job(bot):
 
 def main():
     init_db()
+
+      # Clear any existing webhook before starting polling
+    bot.delete_webhook()
+    print("Webhook cleared.")
+
     updater = Updater(token=TOKEN, use_context=True)
     dispatcher = updater.dispatcher
 
